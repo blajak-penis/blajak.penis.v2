@@ -1,0 +1,14 @@
+create extension if not exists pgcrypto;
+create table if not exists public.boards(id uuid primary key default gen_random_uuid(),slug text unique not null,name text not null,description text default '',created_at timestamptz default now());
+create table if not exists public.threads(id uuid primary key default gen_random_uuid(),board_id uuid not null references public.boards(id) on delete cascade,title text not null,created_at timestamptz default now(),bumped_at timestamptz default now());
+create table if not exists public.posts(id uuid primary key default gen_random_uuid(),thread_id uuid not null references public.threads(id) on delete cascade,author_name text not null,content text not null default '',image_url text,created_at timestamptz default now());
+create table if not exists public.messages(id uuid primary key default gen_random_uuid(),sender_id uuid not null references auth.users(id) on delete cascade,receiver_id uuid not null references auth.users(id) on delete cascade,content text not null,created_at timestamptz default now(),read boolean default false);
+insert into public.boards(slug,name,description) values('general','General','General discussion') on conflict(slug) do nothing;
+alter table public.boards enable row level security;alter table public.threads enable row level security;alter table public.posts enable row level security;alter table public.messages enable row level security;
+create policy boards_read on public.boards for select to anon,authenticated using(true);
+create policy threads_read on public.threads for select to anon,authenticated using(true);
+create policy threads_insert on public.threads for insert to anon,authenticated with check(true);
+create policy posts_read on public.posts for select to anon,authenticated using(true);
+create policy posts_insert on public.posts for insert to anon,authenticated with check(true);
+create policy messages_read on public.messages for select to authenticated using(auth.uid()=sender_id or auth.uid()=receiver_id);
+create policy messages_insert on public.messages for insert to authenticated with check(auth.uid()=sender_id);
